@@ -20,11 +20,18 @@ $scope.vm.address = {
 ```
 
 Requirements
-==============
+-------------
 AngularJs 1.3
 
+Installation:
+-------------
+*Reference module in your app*
+```
+angular.module('app', ['ngAutocomplete']);
+```
+
 Example
-==============
+-------------
 ```
 <form name="formAddress" novalidate>
     <input ng-model="vm.address.formattedAddress" required
@@ -39,7 +46,7 @@ Example
 ```
 
 Credits
-==============
+-------------
 This is a heavily modified version of [Will Palahnuk](https://github.com/wpalahnuk)'s version of [ngAutocomplete](https://github.com/wpalahnuk/ngAutocomplete). Kudos, Will!
 
 **Major differences are:**
