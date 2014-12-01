@@ -5,41 +5,28 @@
  * A directive for adding google places autocomplete to a text box
  * google places autocomplete info: https://developers.google.com/maps/documentation/javascript/places
  *
- * Simple Usage:
- * <input type="text" ng-model="details.formattedAddress" ng-autocomplete details="details" />
+ * Full Example:
+ * <input type="text" ng-model="details.formattedAddress" ng-autocomplete details="details" options="options" validate-fn="customValidate()" />
  *
  * creates the autocomplete text box
- *   `ng-autocomplete`: specifies the directive, $scope.details will hold the address object that'll look like that:
  * 
- *       details = {
- *           streetNumber: val,
- *           streetName: val,
- *           city: val,
- *           state: val,
- *           postalCode: val,
- *           country: val,
- *           formattedAddress: val,
- *           lat: val,
- *           lng: val,
- *       }
- *
- *
- * Optional parameter options:
- * <input type="text" ng-model="details.formattedAddress" ng-autocomplete details="details" options="options"/>
- *
- *   `options="options"`: options provided by the user that filter the autocomplete results
+ *   Required attributes
+ *   [ng-autocomplete]: Specifies the directive
+ *   [ng-model]: Set it to [details].formattedAddress so that displayed address is updated based on user's selection
+ *   [details]: Specifies result object which is a bit flattened "google place" object, where properties will be set to the address types.
+ *              For more info about google types, see: https://developers.google.com/maps/documentation/geocoding/#Types
+ *   
+ *   Optional attributes
+ *   [options]: Options provided by the user that filter the autocomplete results
  *
  *       options = {
  *           types: type,        string, values can be 'geocode', 'establishment', '(regions)', or '(cities)'
  *           bounds: bounds,     google maps LatLngBounds Object
  *           country: country    string, ISO 3166-1 Alpha-2 compatible country code. examples; 'ca', 'us', 'gb'
  *       }
+ * 
+ *   [validate-fn]: allows to add any custom validation logic to run upon an address is selected from the list of suggestions
  *
- *
- * Optional parameter validate-fn:
- * <input type="text" ng-model="details.formattedAddress" ng-autocomplete details="details" validate-fn="customValidate()"/>
- *
- * allows to add any custom validation logic to run upon an address is selected from the list of suggestions
  *
  */
 
@@ -51,37 +38,16 @@ angular.module("ngAutocomplete", [])
                 if (place) {
                     result = {};
                     for (var i = 0, l = place.address_components.length; i < l; i++) {
-                        switch (place.address_components[i].types[0]) {
-                        case 'street_number':
-                            if (i == 0) result.searchedBy = 'streetNumber';
-                            result.streetNumber = place.address_components[i].long_name;
-                            break;
-                        case 'route':
-                            if (i == 0) result.searchedBy = 'streetName';
-                            result.streetName = place.address_components[i].long_name;
-                            break;
-                        case 'locality':
-                            if (i == 0) result.searchedBy = 'city';
-                            result.city = place.address_components[i].long_name;
-                            break;
-                        case 'administrative_area_level_1':
-                            if (i == 0) result.searchedBy = 'state';
-                            result.state = place.address_components[i].short_name;
-                            break;
-                        case 'postal_code':
-                            if (i == 0) result.searchedBy = 'postalCode';
-                            result.postalCode = place.address_components[i].long_name;
-                            break;
-                        case 'country':
-                            if (i == 0) result.searchedBy = 'country';
-                            result.country = place.address_components[i].long_name;
-                            break;
+                        if (i == 0) {
+                            result.searchedBy = place.address_components[i].types[0];
                         }
+                        result[place.address_components[i].types[0]] = place.address_components[i].long_name;
                     }
                     result.formattedAddress = place.formatted_address;
                     result.lat = place.geometry.location.lat();
                     result.lng = place.geometry.location.lng();
                 }
+                console.log(result);
                 return result;
             }
 
@@ -93,12 +59,12 @@ angular.module("ngAutocomplete", [])
                     options: '=',
                     validateFn: '&'
                 },
-                link: function($scope, $element, $attrs, $ctrl) {
+                link: function ($scope, $element, $attrs, $ctrl) {
                     //options for autocomplete
                     var opts;
 
                     //convert options provided to opts
-                    var initOpts = function() {
+                    var initOpts = function () {
                         opts = {};
                         if ($scope.options) {
                             if ($scope.options.types) {
@@ -118,7 +84,7 @@ angular.module("ngAutocomplete", [])
 
                     //create new autocomplete
                     //reinitializes on every change of the options provided
-                    var newAutocomplete = function() {
+                    var newAutocomplete = function () {
                         $scope.gPlace = new google.maps.places.Autocomplete($element[0], opts);
                         google.maps.event.addListener($scope.gPlace, 'place_changed', function () {
                             $scope.$apply(function () {
@@ -146,9 +112,9 @@ angular.module("ngAutocomplete", [])
                             e.preventDefault();
                         }
                     });
-                    
+
                     //watch options provided to directive
-                    $scope.watchOptions = function() {
+                    $scope.watchOptions = function () {
                         return $scope.options;
                     };
                     $scope.$watch($scope.watchOptions, function () {
@@ -159,21 +125,21 @@ angular.module("ngAutocomplete", [])
 
                     // user typed something in the input - means an intention to change address, which is why
                     // we need to null out all fields for fresh validation
-                    $element.on('keyup', function() {
-                        if ($scope.details) {
-                            $scope.details.streetNumber = '';
-                            $scope.details.streetName = '';
-                            $scope.details.city = '';
-                            $scope.details.state = '';
-                            $scope.details.postalCode = '';
-                            $scope.details.country = '';
-                            $scope.details.lat = undefined;
-                            $scope.details.lng = undefined;
-                        }
-                        if ($ctrl.$valid) {
-                            $scope.$apply(function() {
-                                $ctrl.$setValidity('parse', false);
-                            });
+                    $element.on('keyup', function (e) {
+                        //          chars 0-9, a-z                        numpad 0-9                   backspace         delete           space
+                        if ((e.which >= 48 && e.which <= 90) || (e.which >= 96 && e.which <= 105) || e.which == 8 || e.which == 46 || e.which == 32) {
+                            if ($scope.details) {
+                                for (var property in $scope.details) {
+                                    if ($scope.details.hasOwnProperty(property) && property != 'formattedAddress') {
+                                        delete $scope.details[property];
+                                    }
+                                }
+                            }
+                            if ($ctrl.$valid) {
+                                $scope.$apply(function() {
+                                    $ctrl.$setValidity('parse', false);
+                                });
+                            }
                         }
                     });
                 }
