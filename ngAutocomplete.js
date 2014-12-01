@@ -27,7 +27,8 @@
  * 
  *   [validate-fn]: allows to add any custom validation logic to run upon an address is selected from the list of suggestions
  *
- *
+ *   IMPORTANT!
+ *   You must declare $scope.details = {}; in the controller
  */
 
 angular.module("ngAutocomplete", [])
@@ -47,7 +48,6 @@ angular.module("ngAutocomplete", [])
                     result.lat = place.geometry.location.lat();
                     result.lng = place.geometry.location.lng();
                 }
-                console.log(result);
                 return result;
             }
 
