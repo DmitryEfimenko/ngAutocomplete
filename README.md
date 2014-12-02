@@ -37,7 +37,8 @@ Credits
 This is a heavily modified version of [Will Palahnuk](https://github.com/wpalahnuk)'s version of [ngAutocomplete](https://github.com/wpalahnuk/ngAutocomplete). Kudos, Will!
 
 **Major differences are:**
-* use of directive results in a modified version of gppgle place object that's ready to be stored in DB.
+* use of directive results in a modified version of Google Place object that's ready to be stored in DB.
 * `<input>` requires `ng-model` attribute.
 * included default validation that requires user to actually select one of the suggested options.
 * optional attribute `validate-fn` which can be used to provide additional validation function that'll run when user selects something from the list of suggestions.
+* minor bug fixes
