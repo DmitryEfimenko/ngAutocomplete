@@ -1,155 +1,163 @@
 'use strict';
 
-/**
- * Source: https://github.com/DmitryEfimenko/ngAutocomplete
- * A directive for adding google places autocomplete to a text box
- * google places autocomplete info: https://developers.google.com/maps/documentation/javascript/places
- *
- * Full Example:
- * <input type="text" ng-model="details.formattedAddress" ng-autocomplete details="details" options="options" validate-fn="customValidate()" />
- *
- * creates the autocomplete text box
- * 
- *   Required attributes
- *   [ng-autocomplete]: Specifies the directive
- *   [ng-model]: Set initial value for the textbox
- *   [details]: Specifies result object which is a bit flattened "google place" object, where properties will be set to the address types.
- *              For more info about google types, see: https://developers.google.com/maps/documentation/geocoding/#Types
- *   
- *   Optional attributes
- *   [options]: Options provided by the user that filter the autocomplete results
- *
- *       options = {
- *           types: type,        string, values can be 'geocode', 'establishment', '(regions)', or '(cities)'
- *           bounds: bounds,     google maps LatLngBounds Object
- *           country: country    string, ISO 3166-1 Alpha-2 compatible country code. examples; 'ca', 'us', 'gb'
- *       }
- * 
- *   [validate-fn]: allows to add any custom validation logic to run upon an address is selected from the list of suggestions
- *
- *   IMPORTANT!
- *   You must declare $scope.details = {}; in the controller
- */
+/*
+  * Source: https://github.com/DmitryEfimenko/ng-server-validation
+  * Set of directives to ease up displaying of the server side validation errors to the user
+  * Originally built to handle bad response from the ASP.NET MVC API assuming that the ModelState object was passed.
+  * However it can be adopted in any server side technology given that the bad validation response will return
+  * an object of the same structure as MVC's ModelState object.
+  * In case server adds a ModelState error with a property name that does not have a corresponding input,
+  * the error will be placed under `formName.$serverErrors.propertyName`
+  *
+  * Example:
+  * ASP.NET MVC API Action Result:
+  * ModelState.AddModelError("email", "wrongEmailFormat");
+  * ModelState.AddModelError("general", "generalError"); // the 'general' property does not have a corresponding input
+  * return BadRequest(ModelState);
+  *
+  * index.html:
+  * <form name="myForm" ng-submit="submitMyForm()" server-validate novalidate>
+  *     <input type="text" name="email" ng-model="email" required>
+  *     <div ng-messages="myForm.email.$error" ng-show="myForm.email.$dirty">
+  *         <div ng-message="required">Email address is required</div>
+  *         <div ng-message="wrongEmailFormat">This email address is incorrect</div>
+  *     </div>
+  *     <div ng-messages="myForm.$serverErrors.general" ng-show="myForm.email.$dirty">
+  *         <div ng-message="generalError">Server is completely broke!</div>
+  *     </div>
+  *     <button type="submit">Submit</button>
+  * </form>
+  *
+  * index.js - inside Controller:
+  * $scope.submitMyForm = function() {
+  *     $http.post('/api/Email/Add', { email: $scope.email }).then(
+  *         function(response) {
+  *             // no errors - do whatever you need to do
+  *         },
+  *         function(error) {
+  *             $scope.modelState = error.data.modelState;
+  *         }
+  *     );
+  * }
+*/
 
-angular.module("ngAutocomplete", [])
-    .directive('ngAutocomplete', ['$parse',
-        function ($parse) {
-            function convertPlaceToFriendlyObject(place) {
-                var result = undefined;
-                if (place) {
-                    result = {};
-                    for (var i = 0, l = place.address_components.length; i < l; i++) {
-                        if (i == 0) {
-                            result.searchedBy = place.address_components[i].types[0];
-                        }
-                        result[place.address_components[i].types[0]] = place.address_components[i].long_name;
+angular.module('server-validate')
+    .service('serverValidateService', [function () {
+        var watchingFieldNames = [];
+        var self = this;
+
+        self.clearServerError = function (form, fieldName) {
+            if (form[fieldName]) {
+                for (var errorFieldName in form[fieldName].$error) {
+                    if (form[fieldName].$error.hasOwnProperty(errorFieldName)) {
+                        form[fieldName].$setValidity(errorFieldName, true);
                     }
-                    result.formattedAddress = place.formatted_address;
-                    result.lat = place.geometry.location.lat();
-                    result.lng = place.geometry.location.lng();
                 }
-                return result;
+                // make sure that clearing server side validation does not interfere with client side validation:
+                form[fieldName].$validate();
             }
+            var fieldNameIndex = watchingFieldNames.indexOf(fieldName);
+            if (fieldNameIndex > -1) watchingFieldNames.splice(fieldNameIndex, 1);
+        };
 
+        self.clearServerErrors = function (form) {
+            for (var i = 0, l = watchingFieldNames.length; i < l; i++) {
+                self.clearServerError(form, watchingFieldNames[i]);
+            }
+        };
+
+        self.watchOnce = function (form, fieldName) {
+            watchingFieldNames.push(fieldName);
+
+            form[fieldName].$viewChangeListeners.push(addChangeListener);
+
+            function addChangeListener() {
+                self.clearServerError(form, fieldName);
+                var listenerIndex = form[fieldName].$viewChangeListeners.indexOf(addChangeListener);
+                if (listenerIndex > -1)
+                    form[fieldName].$viewChangeListeners.splice(listenerIndex, 1);
+            }
+        };
+
+        self.addError = function (form, fieldName, validationProperty) {
+            if (form[fieldName]) {
+                form[fieldName].$setValidity(validationProperty, false);
+                self.watchOnce(form, fieldName);
+            } else {
+                console.log('error on serverValidateService.setServerValidity(): there is no input with name="' + fieldName + '" in the form');
+            }
+        };
+    }])
+    .directive('serverValidate', ['serverValidateService',
+        function (serverValidateService) {
             return {
                 restrict: 'A',
-                require: 'ngModel',
-                link: function ($scope, $element, $attrs, $ctrl) {
-                    if (!angular.isDefined($attrs.details)) {
-                        throw '<ng-autocomplete> must have attribute [details] assigned to store full address object';
-                    }
+                require: 'form',
+                link: function ($scope, $elem, $attrs, $form) {
 
-                    var getDetails = $parse($attrs.details);
-                    var setDetails = getDetails.assign;
-                    var getOptions = $parse($attrs.options);
+                    var errorFormat = $attrs.serverValidate;
+                    $form.$serverErrors = {};
 
-                    //options for autocomplete
-                    var opts;
+                    $scope.$watch('modelState', function() {
+                        // clear all modelState errors from form
+                        serverValidateService.clearServerErrors($form);
 
-                    //convert options provided to opts
-                    var initOpts = function () {
-                        opts = {};
-                        if (angular.isDefined($attrs.options)) {
-                            var options = getOptions($scope);
-                            if (options.types) {
-                                opts.types = [];
-                                opts.types.push(options.types);
+                        var foundErrors = false;
+
+                        if (errorFormat && errorFormat == 'Microsoft.Owin') {
+                            // expecting server response like: { error: '[inputName]', error_description: '[errorType]' }
+                            // example: { error: 'password', error_description: 'invalid' }
+                            if ($scope.modelState) {
+                                foundErrors = true;
+                                var inputName = $scope.modelState.error;
+                                var errorType = $scope.modelState.error_description;
+
+                                if ($form[inputName]) {
+                                    $form[inputName].$dirty = true;
+                                    $form[inputName].$pristine = false;
+                                    $form[inputName].$setValidity(errorType, false);
+                                    serverValidateService.watchOnce($form, inputName);
+                                } else {
+                                    if (!$form.$serverErrors[inputName]) $form.$serverErrors[inputName] = {};
+                                    $form.$serverErrors[inputName][errorType] = true;
+                                    angular.element($elem).on('submit', clearGeneralServerErrors);
+                                }
                             }
-                            if (options.bounds) {
-                                opts.bounds = options.bounds;
-                            }
-                            if (options.country) {
-                                opts.componentRestrictions = {
-                                    country: options.country
-                                };
-                            }
-                        }
-                    };
+                        } else {
+                            // expecting server response like: { '[inputName1]': ['[errorType1]', '[errorType2]'], '[inputName2]': ['[errorType3]', '[errorType4]'], ... }
+                            // example: { password: ['invalid', 'maxlength'], email: ['required'] }
+                            for (var fieldName in $scope.modelState) {
+                                if ($scope.modelState.hasOwnProperty(fieldName)) {
+                                    foundErrors = true;
 
-                    //create new autocomplete
-                    //reinitializes on every change of the options provided
-                    var newAutocomplete = function () {
-                        var gPlace = new google.maps.places.Autocomplete($element[0], opts);
-                        google.maps.event.addListener(gPlace, 'place_changed', function () {
-                            $scope.$apply(function () {
-                                var place = gPlace.getPlace();
-                                var details = convertPlaceToFriendlyObject(place);
-                                setDetails($scope, details);
-                                $ctrl.$setViewValue(details.formattedAddress);
-                                $ctrl.$validate();
-                            });
-                            if ($ctrl.$valid && angular.isDefined($attrs.validateFn)) {
-                                $scope.$apply(function () {
-                                    $scope.$eval($attrs.validateFn);
-                                });
-                            }
-                        });
-                    };
-                    newAutocomplete();
+                                    if ($form[fieldName]) {
+                                        $form[fieldName].$dirty = true;
+                                        $form[fieldName].$pristine = false;
+                                        for (var i = 0, l = $scope.modelState[fieldName].length; i < l; i++) {
+                                            $form[fieldName].$setValidity($scope.modelState[fieldName][i], false);
+                                        }
+                                        serverValidateService.watchOnce($form, fieldName);
+                                    } else {
+                                        // there is no input associated with provided fieldName
+                                        if (!$form.$serverErrors[fieldName]) $form.$serverErrors[fieldName] = {};
+                                        for (var j = 0, jl = $scope.modelState[fieldName].length; j < jl; j++) {
+                                            $form.$serverErrors[fieldName][$scope.modelState[fieldName][j]] = true;
+                                        }
 
-                    $ctrl.$validators.parse = function (value) {
-                        var details = getDetails($scope);
-                        var valid = ($attrs.required == true && details != undefined && details.lat != undefined) ||
-                            (!$attrs.required && (details == undefined || details.lat == undefined) && $element.val() != '');
-                        return valid;
-                    };
-
-                    $element.on('keypress', function (e) {
-                        // prevent form submission on pressing Enter as there could be more inputs to fill out
-                        if (e.which == 13) {
-                            e.preventDefault();
-                        }
-                    });
-
-                    //watch options provided to directive
-                    if (angular.isDefined($attrs.options)) {
-                        $scope.$watch($attrs.options, function() {
-                            initOpts();
-                            newAutocomplete();
-                        });
-                    }
-
-                    // user typed something in the input - means an intention to change address, which is why
-                    // we need to null out all fields for fresh validation
-                    $element.on('keyup', function (e) {
-                        //          chars 0-9, a-z                        numpad 0-9                   backspace         delete           space
-                        if ((e.which >= 48 && e.which <= 90) || (e.which >= 96 && e.which <= 105) || e.which == 8 || e.which == 46 || e.which == 32) {
-                            var details = getDetails($scope);
-                            if (details != undefined) {
-                                for (var property in details) {
-                                    if (details.hasOwnProperty(property) && property != 'formattedAddress') {
-                                        delete details[property];
+                                        angular.element($elem).on('submit', clearGeneralServerErrors);
                                     }
                                 }
-                                setDetails($scope, details);
-                            }
-                            if ($ctrl.$valid) {
-                                $scope.$apply(function () {
-                                    $ctrl.$setValidity('parse', false);
-                                });
                             }
                         }
+
+                        if (foundErrors)
+                            $form.$setDirty();
                     });
+
+                    function clearGeneralServerErrors() {
+                        $form.$serverErrors = {};
+                        angular.element($elem).off('submit', clearGeneralServerErrors);
+                    }
                 }
             };
         }
