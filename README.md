@@ -4,7 +4,7 @@ ngAutocomplete
 A simple directive for adding google places autocomplete to a textbox element.
 
 Texbox will be invalidated with a property name `parse` (see example below) if user fails to pick one of the suggestions.
-As a result of the selection `$scope.details` will hold a bit modified version of "google place" object that is ready easy to send to the server/database.
+As a result of the selection `$scope.details` will hold a bit modified version of "google place" object that is ready to be sent to the server/database.
 
 Requirements
 -------------
