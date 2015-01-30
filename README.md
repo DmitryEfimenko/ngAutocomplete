@@ -33,7 +33,7 @@ Example
 </form>
 ```
 
-[**Plunker Example**](http://plnkr.co/edit/2Ct5RSJIypBUHqB9NY9U?p=preview)
+**Demo:** [**Plunker Example**](http://plnkr.co/edit/2Ct5RSJIypBUHqB9NY9U?p=preview)
 
 Credits
 -------------
