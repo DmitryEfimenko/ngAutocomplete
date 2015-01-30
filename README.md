@@ -8,7 +8,8 @@ As a result of the selection `$scope.details` will hold a bit modified version o
 
 Requirements
 -------------
-AngularJs 1.3
+* AngularJs 1.3
+* Reference to google maps api
 
 Installation:
 -------------
@@ -31,6 +32,8 @@ Example
     </div>
 </form>
 ```
+
+[**Plunker Example**](http://plnkr.co/edit/2Ct5RSJIypBUHqB9NY9U?p=preview)
 
 Credits
 -------------
