@@ -62,6 +62,8 @@ angular.module("ngAutocomplete", [])
                     var getDetails = $parse($attrs.details);
                     var setDetails = getDetails.assign;
                     var getOptions = $parse($attrs.options);
+                    var googleServiceTested = false;
+                    var googleServiceWorks = false;
 
                     //options for autocomplete
                     var opts;
@@ -86,32 +88,54 @@ angular.module("ngAutocomplete", [])
                         }
                     };
 
+                    var testGoogleService = function(cb) {
+                        if (!googleServiceTested) {
+                            var service = new google.maps.places.AutocompleteService();
+                            service.getPlacePredictions({ input: 'Phoenix' }, function (predictions, status) {
+                                googleServiceTested = true;
+                                googleServiceWorks = status == google.maps.places.PlacesServiceStatus.OK;
+                                cb();
+                            });
+                        } else {
+                            cb();
+                        }
+                    }
+
                     //create new autocomplete
                     //reinitializes on every change of the options provided
                     var newAutocomplete = function () {
-                        var gPlace = new google.maps.places.Autocomplete($element[0], opts);
-                        google.maps.event.addListener(gPlace, 'place_changed', function () {
-                            $scope.$apply(function () {
-                                var place = gPlace.getPlace();
-                                var details = convertPlaceToFriendlyObject(place);
-                                setDetails($scope, details);
-                                $ctrl.$setViewValue(details.formattedAddress);
-                                $ctrl.$validate();
-                            });
-                            if ($ctrl.$valid && angular.isDefined($attrs.validateFn)) {
-                                $scope.$apply(function () {
-                                    $scope.$eval($attrs.validateFn);
+                        testGoogleService(function () {
+                            if (googleServiceWorks) {
+                                var gPlace = new google.maps.places.Autocomplete($element[0], opts);
+                                google.maps.event.addListener(gPlace, 'place_changed', function() {
+                                    $scope.$apply(function() {
+                                        var place = gPlace.getPlace();
+                                        var details = convertPlaceToFriendlyObject(place);
+                                        setDetails($scope, details);
+                                        $ctrl.$setViewValue(details.formattedAddress);
+                                        $ctrl.$validate();
+                                    });
+                                    if ($ctrl.$valid && angular.isDefined($attrs.validateFn)) {
+                                        $scope.$apply(function() {
+                                            $scope.$eval($attrs.validateFn);
+                                        });
+                                    }
                                 });
                             }
                         });
                     };
+
                     newAutocomplete();
 
                     $ctrl.$validators.parse = function (value) {
-                        var details = getDetails($scope);
-                        var valid = ($attrs.required == true && details != undefined && details.lat != undefined) ||
+                        if (googleServiceWorks) {
+                            var details = getDetails($scope);
+                            var valid = ($attrs.required == true && details != undefined && details.lat != undefined) ||
                             (!$attrs.required && (details == undefined || details.lat == undefined) && $element.val() != '');
-                        return valid;
+                            return valid;
+                        } else {
+                            return true;
+                        }
                     };
 
                     $element.on('keypress', function (e) {
@@ -123,7 +147,7 @@ angular.module("ngAutocomplete", [])
 
                     //watch options provided to directive
                     if (angular.isDefined($attrs.options)) {
-                        $scope.$watch($attrs.options, function() {
+                        $scope.$watch($attrs.options, function () {
                             initOpts();
                             newAutocomplete();
                         });
@@ -132,21 +156,23 @@ angular.module("ngAutocomplete", [])
                     // user typed something in the input - means an intention to change address, which is why
                     // we need to null out all fields for fresh validation
                     $element.on('keyup', function (e) {
-                        //          chars 0-9, a-z                        numpad 0-9                   backspace         delete           space
-                        if ((e.which >= 48 && e.which <= 90) || (e.which >= 96 && e.which <= 105) || e.which == 8 || e.which == 46 || e.which == 32) {
-                            var details = getDetails($scope);
-                            if (details != undefined) {
-                                for (var property in details) {
-                                    if (details.hasOwnProperty(property) && property != 'formattedAddress') {
-                                        delete details[property];
+                        if (googleServiceWorks) {
+                            //          chars 0-9, a-z                        numpad 0-9                   backspace         delete           space
+                            if ((e.which >= 48 && e.which <= 90) || (e.which >= 96 && e.which <= 105) || e.which == 8 || e.which == 46 || e.which == 32) {
+                                var details = getDetails($scope);
+                                if (details != undefined) {
+                                    for (var property in details) {
+                                        if (details.hasOwnProperty(property) && property != 'formattedAddress') {
+                                            delete details[property];
+                                        }
                                     }
+                                    setDetails($scope, details);
                                 }
-                                setDetails($scope, details);
-                            }
-                            if ($ctrl.$valid) {
-                                $scope.$apply(function () {
-                                    $ctrl.$setValidity('parse', false);
-                                });
+                                if ($ctrl.$valid) {
+                                    $scope.$apply(function() {
+                                        $ctrl.$setValidity('parse', false);
+                                    });
+                                }
                             }
                         }
                     });
