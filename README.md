@@ -39,9 +39,10 @@ Credits
 -------------
 This is a heavily modified version of [Will Palahnuk](https://github.com/wpalahnuk)'s version of [ngAutocomplete](https://github.com/wpalahnuk/ngAutocomplete). Kudos, Will!
 
-**Major differences are:**
+**Major differences/features are:**
 * Directive does not use isolate scope.
 * Details are stored as a modified version of Google Place object that's ready to be stored in DB.
 * `<input>` requires `ng-model` attribute for built-in validation.
 * included default validation that requires user to actually select one of the suggested options.
+* Because of the [bug in Google Api](https://code.google.com/p/gmaps-api-issues/issues/detail?id=7627&thanks=7627&ts=1423588307), input disables validation described above when Google Service is not available (occurs when used in China)
 * optional attribute `validate-fn` which can be used to provide additional validation function that'll run when user selects something from the list of suggestions.
