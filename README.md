@@ -1,7 +1,7 @@
 ngAutocomplete
 ==============
 
-This is a slightly modified version of Dmitry Efimenko's version of ngAutocomplete. It allows for specifying short_name or long_name for each component. It is only implemented in ngAutocomplete.js which means you would have to edit it to change the values. formattedAddress still returns the long_name route version but the individual component is returned as specified.
+
 
 
 
@@ -9,6 +9,8 @@ A simple directive for adding google places autocomplete to a textbox element.
 
 Texbox will be invalidated with a property name `parse` (see example below) if user fails to pick one of the suggestions.
 As a result of the selection `$scope.details` will hold a bit modified version of "google place" object that is ready to be sent to the server/database.
+
+You can specifying short_name or long_name for each component. Currently to do so you need to change `componentForm` variable in the `ngAutocomplete.js`. In time changing this will be allowed on the dirrective using attributes. `formattedAddress` still returns the long_name route version but the individual component is returned as specified.
 
 Requirements
 -------------
