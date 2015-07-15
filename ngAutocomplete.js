@@ -34,15 +34,27 @@
 angular.module("ngAutocomplete", [])
     .directive('ngAutocomplete', ['$parse',
         function ($parse) {
-            function convertPlaceToFriendlyObject(place) {
+                	
+    		function convertPlaceToFriendlyObject(place) {
+    			
+        		var componentForm = {
+        				street_number: 'short_name',
+        				route: 'short_name',
+        				locality: 'long_name',
+        				administrative_area_level_1: 'short_name',
+        				country: 'long_name',
+        				postal_code: 'short_name'
+            	};
+    			
                 var result = undefined;
                 if (place) {
                     result = {};
                     for (var i = 0, l = place.address_components.length; i < l; i++) {
-                        if (i == 0) {
-                            result.searchedBy = place.address_components[i].types[0];
+                        var type = place.address_components[i].types[0];
+                    	if (i == 0) {
+                            result.searchedBy = type;
                         }
-                        result[place.address_components[i].types[0]] = place.address_components[i].long_name;
+                        result[type] = place.address_components[i][componentForm[type]];
                     }
                     result.formattedAddress = place.formatted_address;
                     result.lat = place.geometry.location.lat();
