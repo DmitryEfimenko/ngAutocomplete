@@ -50,9 +50,9 @@ angular.module("ngAutocomplete", [])
                 if (place) {
                     result = {};
                     for (var i = 0, l = place.address_components.length; i < l; i++) {
-                        if (i == 0) {
+                        var type = place.address_components[i].types[0];
+                    	if (i == 0) {
                             result.searchedBy = place.address_components[i].types[0];
-                            var type = place.address_components[i].types[0];
                         }
                         result[place.address_components[i].types[0]] = place.address_components[i][componentForm[type]];
                     }
