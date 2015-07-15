@@ -52,9 +52,9 @@ angular.module("ngAutocomplete", [])
                     for (var i = 0, l = place.address_components.length; i < l; i++) {
                         var type = place.address_components[i].types[0];
                     	if (i == 0) {
-                            result.searchedBy = place.address_components[i].types[0];
+                            result.searchedBy = type;
                         }
-                        result[place.address_components[i].types[0]] = place.address_components[i][componentForm[type]];
+                        result[type] = place.address_components[i][componentForm[type]];
                     }
                     result.formattedAddress = place.formatted_address;
                     result.lat = place.geometry.location.lat();
